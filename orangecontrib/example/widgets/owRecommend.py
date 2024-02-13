@@ -23,7 +23,7 @@ class Recommendation(OWWidget):
 
     def __init__(self):
         super().__init__()
-        self.network: Network  = None
+        self.network: Network = None
         self.cartoons_list_label = None
         self.friends_list_label = None
 
@@ -32,8 +32,10 @@ class Recommendation(OWWidget):
             self.controlArea, self, "kid", label="Kid: ",
             model=self.nodes_model, contentsLength=10, callback=self.set_friends)
 
-        gui.label(self.controlArea, self, label="Cartoons asdf", box="Cartoons", orientation="horizontal")
-        self.friends_list_label =gui.label(self.controlArea, self, label="Friends list", box="Friends", orientation="horizontal")
+        self.cartoons_list_label = gui.label(self.controlArea, self, label="cartoons", box="Cartoons: ",
+                                             orientation="horizontal")
+        self.friends_list_label = gui.label(self.controlArea, self, label="Friends list", box="Friends",
+                                            orientation="horizontal")
 
         gui.listView(self.mainArea, self, "all_recommendations", box="Recommendations")
         gui.label(self.mainArea, self, "here we give explanations", box="Explanation", )
@@ -46,13 +48,26 @@ class Recommendation(OWWidget):
 
     def set_value_list(self):
         self.nodes_model[:] = self.network.nodes
+
     def set_friends(self):
         idx = np.where(self.network.nodes == self.kid)[0]
         if len(idx) == 0:
             return
         neighbours = self.network.neighbours(idx[0])
         neighbours_names = [self.network.nodes[i] for i in neighbours]
+        print("neighbours names: ", neighbours_names)
+        self.set_cartoons()
         self.friends_list_label.setText("\n".join(neighbours_names))
+
+    def set_cartoons(self):
+        idx = np.where(self.network.nodes == self.kid)[0]
+        cartoons_str, kid_str = (self.network.nodes[idx[0]]).split('{')
+        cartoons_list = eval(cartoons_str)
+        cartoons_index = [i for i in range(len(cartoons_list)) if cartoons_list[i] == 1]
+        cartoon_names = ['cartoon ' + str(i) for i in cartoons_index]
+        self.cartoons_list_label.setText("\n".join(cartoon_names))
+
+
 
 
 def main():
@@ -61,7 +76,7 @@ def main():
         import read_pajek
     from os.path import join, dirname
 
-    network = read_pajek(join(dirname(dirname(__file__)), 'networks', 'kids_cartoons.net'))
+    network = read_pajek(join(dirname(dirname(__file__)), 'networks', 'kids_cartoons_new.net'))
     WidgetPreview(Recommendation).run(set_network=network)
 
 
