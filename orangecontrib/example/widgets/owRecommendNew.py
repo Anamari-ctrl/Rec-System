@@ -18,7 +18,7 @@ from orangewidget.utils.itemmodels import PyListModel
 
 class Recommendation(OWWidget):
     name = "Recommendation System 👍"
-    description = "Recommend cartoons for kids"
+    description = "Recommend feature based on selected node"
     icon = "icons/recommendation.png"
     category = "Recommendation"
 
@@ -36,7 +36,7 @@ class Recommendation(OWWidget):
     def __init__(self):
         super().__init__()
         self.network: Network = None
-        self.cartoons_list_label = None
+        self.features_list_label = None
         self.friends_list_label = None
 
         box = gui.hBox(self.mainArea)
@@ -53,7 +53,7 @@ class Recommendation(OWWidget):
         gui.rubber(box2)
         fm = QFontMetrics(self.font())
         size = QSize(40 * fm.averageCharWidth(), 5 * fm.height())
-        self.cartoons_list_label = gui.label(box, self, label="items", box="Items", minimumSize=size)
+        self.features_list_label = gui.label(box, self, label="features", box="Features", minimumSize=size)
         self.friends_list_label = gui.label(self.mainArea, self, label="Friends list", box="Friends",
                                             minimumSize=size)
 
@@ -70,6 +70,7 @@ class Recommendation(OWWidget):
 
         self.set_value_list()
         self.set_friends()
+        self.set_features()
 
     def set_value_list(self):
 
@@ -79,18 +80,31 @@ class Recommendation(OWWidget):
             self.nodes_model[:] = self.network.nodes.get_column(self.node_name)
 
     def set_friends(self):
+
         if self.node_name is None or self.kid is None:
             self.friends_list_label.setText("No friends")
             return
 
         self.node_name_id = {node: i for i, node in enumerate(self.network.nodes.get_column(self.node_name))}
-
         neighbours = self.network.neighbours(self.node_name_id[self.kid])
-
         neighbours_names = [key for key, value in self.node_name_id.items() if value in neighbours]
 
-        self.friends_list_label.setText("<ul style='font-size: 12px; list-style-type: square;'>" + "".join([
+        self.friends_list_label.setText("<ul style='font-size: 12px; list-style-type: disc;'>" + "".join([
             "<li>" + name + "</li>" for name in neighbours_names]) + "</ul>")
+        self.set_features()
+
+    def set_features(self):
+        if self.node_name is None or self.kid is None:
+            self.features_list_label.setText("No features")
+            return
+        self.node_name_id = {node: i for i, node in enumerate(self.network.nodes.get_column(self.node_name))}
+
+        a = np.asarray(self.network.nodes[self.node_name_id[self.kid]].x, dtype=int)
+
+        features_of_a_node = [attr.name for attr, voted in zip(self.network.nodes.domain, a) if voted]
+
+        self.features_list_label.setText("<ul style='font-size: 12px; list-style-type: square;'>" + "".join([
+            "<li>" + name + "</li>" for name in features_of_a_node]) + "</ul>")
 
 
 def main():
