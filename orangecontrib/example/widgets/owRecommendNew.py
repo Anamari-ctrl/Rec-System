@@ -79,32 +79,44 @@ class Recommendation(OWWidget):
         else:
             self.nodes_model[:] = self.network.nodes.get_column(self.node_name)
 
+    def find_neighbours(self):
+        self.node_name_id = {node: i for i, node in enumerate(self.network.nodes.get_column(self.node_name))}
+        neighbours = self.network.neighbours(self.node_name_id[self.kid])
+        return [key for key, value in self.node_name_id.items() if value in neighbours]
+
+    def find_features_of_a_node(self):
+
+        self.node_name_id = {node: i for i, node in enumerate(self.network.nodes.get_column(self.node_name))}
+
+        voted_features = np.asarray(self.network.nodes[self.node_name_id[self.kid]].x, dtype=int)
+
+        return [attr.name for attr, voted in zip(self.network.nodes.domain, voted_features) if voted]
+
     def set_friends(self):
 
         if self.node_name is None or self.kid is None:
             self.friends_list_label.setText("No friends")
             return
 
-        self.node_name_id = {node: i for i, node in enumerate(self.network.nodes.get_column(self.node_name))}
-        neighbours = self.network.neighbours(self.node_name_id[self.kid])
-        neighbours_names = [key for key, value in self.node_name_id.items() if value in neighbours]
+        neighbours_names = self.find_neighbours()
 
         self.friends_list_label.setText("<ul style='font-size: 12px; list-style-type: disc;'>" + "".join([
             "<li>" + name + "</li>" for name in neighbours_names]) + "</ul>")
         self.set_features()
+        self.set_recommendations()
 
     def set_features(self):
         if self.node_name is None or self.kid is None:
             self.features_list_label.setText("No features")
             return
-        self.node_name_id = {node: i for i, node in enumerate(self.network.nodes.get_column(self.node_name))}
 
-        a = np.asarray(self.network.nodes[self.node_name_id[self.kid]].x, dtype=int)
-
-        features_of_a_node = [attr.name for attr, voted in zip(self.network.nodes.domain, a) if voted]
+        features_of_a_node = self.find_features_of_a_node()
 
         self.features_list_label.setText("<ul style='font-size: 12px; list-style-type: square;'>" + "".join([
             "<li>" + name + "</li>" for name in features_of_a_node]) + "</ul>")
+
+    def set_recommendations(self):
+        print("set_recommendations")
 
 
 def main():
