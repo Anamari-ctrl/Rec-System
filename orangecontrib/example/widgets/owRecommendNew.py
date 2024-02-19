@@ -25,7 +25,7 @@ class Recommendation(OWWidget):
     class Inputs:
         network = Input("Network", Network, default=True)
 
-    kid = settings.ContextSetting(None)
+    selected_node = settings.ContextSetting(None)
     node_name = settings.ContextSetting(None)
     want_control_area = False
 
@@ -33,6 +33,7 @@ class Recommendation(OWWidget):
 
     def __init__(self):
         super().__init__()
+        self.node_name_id = None
         self.network: Network = None
         self.features_list_label = None
         self.friends_list_label = None
@@ -46,7 +47,7 @@ class Recommendation(OWWidget):
 
         self.nodes_model = PyListModel()
         gui.comboBox(
-            box2, self, "kid", label="Name ",
+            box2, self, "selected_node", label="Name ",
             model=self.nodes_model, contentsLength=10, callback=self.set_friends, orientation=Qt.Horizontal)
         gui.rubber(box2)
         fm = QFontMetrics(self.font())
@@ -79,7 +80,7 @@ class Recommendation(OWWidget):
             self.nodes_model[:] = self.network.nodes.get_column(self.node_name)
 
     def find_neighbours(self):
-        neighbours = self.network.neighbours(self.node_name_id[self.kid])
+        neighbours = self.network.neighbours(self.node_name_id[self.selected_node])
         return [key for key, value in self.node_name_id.items() if value in neighbours]
 
     def get_features_for_node(self, node_name):
@@ -88,7 +89,7 @@ class Recommendation(OWWidget):
 
     def set_friends(self):
 
-        if self.node_name is None or self.kid is None:
+        if self.node_name is None or self.selected_node is None:
             self.friends_list_label.setText("No friends")
             return
 
@@ -100,11 +101,11 @@ class Recommendation(OWWidget):
         self.set_recommendations()
 
     def set_features(self):
-        if self.node_name is None or self.kid is None:
+        if self.node_name is None or self.selected_node is None:
             self.features_list_label.setText("No features")
             return
 
-        features_of_a_node = self.get_features_for_node(self.kid)
+        features_of_a_node = self.get_features_for_node(self.selected_node)
 
         self.features_list_label.setText("<ul style='font-size: 12px; list-style-type: disc;'>" + "".join([
             "<li>" + name + "</li>" for name in features_of_a_node]) + "</ul>")
@@ -112,7 +113,7 @@ class Recommendation(OWWidget):
     def set_recommendations(self):
         features_to_recommend = set()
         neighbours_names = self.find_neighbours()
-        features_of_a_node = self.get_features_for_node(self.kid)
+        features_of_a_node = self.get_features_for_node(self.selected_node)
 
         for neighbour in neighbours_names:
             features_of_a_neighbour = self.get_features_for_node(neighbour)
