@@ -68,26 +68,25 @@ class Recommendation(OWWidget):
         if self.node_name_model:
             self.node_name = self.node_name_model[0]
 
+        self.node_name_id = {node: i for i, node in enumerate(self.network.nodes.get_column(self.node_name))}
+
         self.set_value_list()
         self.set_friends()
         self.set_features()
 
     def set_value_list(self):
-
         if self.node_name is None:
             self.nodes_model.clear()
         else:
             self.nodes_model[:] = self.network.nodes.get_column(self.node_name)
 
     def find_neighbours(self):
-        self.node_name_id = {node: i for i, node in enumerate(self.network.nodes.get_column(self.node_name))}
         neighbours = self.network.neighbours(self.node_name_id[self.kid])
         return [key for key, value in self.node_name_id.items() if value in neighbours]
 
-    def find_features_of_a_node(self):
-        self.node_name_id = {node: i for i, node in enumerate(self.network.nodes.get_column(self.node_name))}
-        voted_features = np.asarray(self.network.nodes[self.node_name_id[self.kid]].x, dtype=int)
-        return [attr.name for attr, voted in zip(self.network.nodes.domain, voted_features) if voted]
+    def get_features_for_node(self, node_name):
+        voted_features = np.asarray(self.network.nodes[self.node_name_id[node_name]].x, dtype=int)
+        return {attr.name for attr, voted in zip(self.network.nodes.domain, voted_features) if voted}
 
     def set_friends(self):
 
@@ -107,46 +106,21 @@ class Recommendation(OWWidget):
             self.features_list_label.setText("No features")
             return
 
-        features_of_a_node = self.find_features_of_a_node()
+        features_of_a_node = self.get_features_for_node(self.kid)
 
         self.features_list_label.setText("<ul style='font-size: 12px; list-style-type: square;'>" + "".join([
             "<li>" + name + "</li>" for name in features_of_a_node]) + "</ul>")
 
-    # def set_recommendations1(self):
-    #     features_to_recommend = set()
-    #     neighbours_names = self.find_neighbours()
-    #     neighbour_feature = self.find_features_of_a_node()
-    #
-    #     print("neighbours_names", neighbours_names)
-    #     for neighbour in neighbours_names:
-    #         voted_features = np.asarray(self.network.nodes[self.node_name_id[neighbour]].x, dtype=int)
-    #         print("self.network.nodes", self.network.nodes)
-    #         print("votes", voted_features)
-    #         # make recommendations based on voted_features and set_features
-    #         features_of_a_neighbour = (attr.name for attr, voted in zip(self.network.nodes.domain, voted_features) if voted)
-    #         features_of_a_node = self.find_features_of_a_node()
-    #
-    #         for feature_neighbour in features_of_a_neighbour:
-    #             for feature_node in features_of_a_node:
-    #                 if feature_neighbour != feature_node:
-    #                     features_to_recommend.add(feature_neighbour)
-    #
-    #     self.rec.setText("<ul style='font-size: 12px; list-style-type: square;'>" + "".join([
-    #         "<li>" + name + "</li>" for name in features_to_recommend]) + "</ul>")
-
     def set_recommendations(self):
         features_to_recommend = set()
         neighbours_names = self.find_neighbours()
-        neighbour_feature = self.find_features_of_a_node()
+        features_of_a_node = self.get_features_for_node(self.kid)
+
         for neighbour in neighbours_names:
-            voted_features = np.asarray(self.network.nodes[self.node_name_id[neighbour]].x, dtype=int)
-            features_of_a_neighbour = (attr.name for attr, voted in zip(self.network.nodes.domain, voted_features) if voted)
-            features_of_a_node = self.find_features_of_a_node()
-            for feature_neighbour in features_of_a_neighbour:
-                for feature_node in features_of_a_node:
-                    if feature_neighbour != feature_node:
-                        features_to_recommend.add(feature_neighbour)
-        self.rec.setText("<ul style='font-size: 12px; list-style-type: square;'>" + "".join([
+            features_of_a_neighbour = self.get_features_for_node(neighbour)
+            features_to_recommend = features_of_a_neighbour - features_of_a_node
+
+        self.rec.setText("<ul style='font-size: 12px; list-style-type: circle;'>" + "".join([
             "<li>" + name + "</li>" for name in features_to_recommend]) + "</ul>")
 
 
