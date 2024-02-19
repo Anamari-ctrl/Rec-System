@@ -96,7 +96,7 @@ class Recommendation(OWWidget):
 
         neighbours_names = self.find_neighbours()
 
-        self.friends_list_label.setText("<ul style='font-size: 12px; list-style-type: disc;'>" + "".join([
+        self.friends_list_label.setText("<ul style='font-size: 12px; list-style-type: circle;'>" + "".join([
             "<li>" + name + "</li>" for name in neighbours_names]) + "</ul>")
         self.set_features()
         self.set_recommendations()
@@ -108,7 +108,7 @@ class Recommendation(OWWidget):
 
         features_of_a_node = self.get_features_for_node(self.kid)
 
-        self.features_list_label.setText("<ul style='font-size: 12px; list-style-type: square;'>" + "".join([
+        self.features_list_label.setText("<ul style='font-size: 12px; list-style-type: disc;'>" + "".join([
             "<li>" + name + "</li>" for name in features_of_a_node]) + "</ul>")
 
     def set_recommendations(self):
@@ -118,9 +118,9 @@ class Recommendation(OWWidget):
 
         for neighbour in neighbours_names:
             features_of_a_neighbour = self.get_features_for_node(neighbour)
-            features_to_recommend = features_of_a_neighbour - features_of_a_node
+            features_to_recommend.update(features_of_a_neighbour - features_of_a_node)
 
-        self.rec.setText("<ul style='font-size: 12px; list-style-type: circle;'>" + "".join([
+        self.rec.setText("<ul style='font-size: 12px; list-style-type: disc;'>" + "".join([
             "<li>" + name + "</li>" for name in features_to_recommend]) + "</ul>")
 
 
