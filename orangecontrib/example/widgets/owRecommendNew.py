@@ -26,10 +26,8 @@ class Recommendation(OWWidget):
         network = Input("Network", Network, default=True)
 
     kid = settings.ContextSetting(None)
-    explanation = Setting(0)
     node_name = settings.ContextSetting(None)
     want_control_area = False
-    node_name_id = Setting(0)
 
     resizing_enabled = False
 
