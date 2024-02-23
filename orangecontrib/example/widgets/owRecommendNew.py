@@ -1,7 +1,9 @@
 import numpy as np
-import re
+
+from collections import Counter
 
 from AnyQt.QtCore import Qt, QSize
+from AnyQt.QtWidgets import QGridLayout, QLabel
 from AnyQt.QtGui import QFontMetrics
 
 import Orange
@@ -25,51 +27,66 @@ class Recommendation(OWWidget):
     class Inputs:
         network = Input("Network", Network, default=True)
 
+    # ContextSetting je dinamicen glede na podatke, če sploh obstaja to v podatkih, ima cel seznam preteklih nastavitev widgeta
+    settingsHandler = settings.DomainContextHandler()
     selected_node = settings.ContextSetting(None)
     node_name = settings.ContextSetting(None)
+    number_of_recommendations = Setting(0)
     want_control_area = False
 
     resizing_enabled = False
 
     def __init__(self):
         super().__init__()
-        self.node_name_id = None
+        self.node_name_id = None  # raje property
         self.network: Network = None
-        self.features_list_label = None
-        self.friends_list_label = None
+        self.weights = None
 
-        box = gui.hBox(self.mainArea)
-        box2 = gui.vBox(box, "Node")
         self.node_name_model = DomainModel(valid_types=Orange.data.StringVariable)
         gui.comboBox(
-            box2, self, "node_name", label="Name column: ",
-            model=self.node_name_model, callback=self.set_value_list, orientation=Qt.Horizontal)
+            self.mainArea, self, "node_name", label="Name column: ", box=True,
+            model=self.node_name_model, callback=self.set_value_list,
+            orientation=Qt.Horizontal)
 
+        grid = QGridLayout()
+        gui.widgetBox(self.mainArea, "Node", orientation=grid)
         self.nodes_model = PyListModel()
-        gui.comboBox(
-            box2, self, "selected_node", label="Name ",
-            model=self.nodes_model, contentsLength=10, callback=self.set_friends, orientation=Qt.Horizontal)
-        gui.rubber(box2)
-        fm = QFontMetrics(self.font())
-        size = QSize(40 * fm.averageCharWidth(), 5 * fm.height())
-        self.features_list_label = gui.label(box, self, label="features", box="Features", minimumSize=size)
-        self.friends_list_label = gui.label(self.mainArea, self, label="Friends list", box="Friends",
-                                            minimumSize=size)
+        combo = gui.comboBox(
+            None, self, "selected_node",
+            model=self.nodes_model, callback=self.set_friends)
 
+        alignTop = Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+        grid.addWidget(combo, 0, 0, 1, 2)
+        grid.addWidget(QLabel(self, text="<b>Cartoons: </b"), 1, 0, alignment=alignTop)
+        self.features_list_label = QLabel(self, wordWrap=True)
+        grid.addWidget(self.features_list_label, 1, 1)
+        grid.addWidget(QLabel(self, text="<b>Friends: </b"), 2, 0, alignment=alignTop)
+        self.friends_list_label = QLabel(self, wordWrap=True)
+        grid.addWidget(self.friends_list_label, 2, 1)
+
+        fm = QFontMetrics(self.font())
         box3 = gui.hBox(self.mainArea, "Recommendations")
-        self.rec = gui.widgetLabel(box3, minimumSize=QSize(40 * fm.averageCharWidth(), 5 * fm.height()))
+        self.rec = gui.widgetLabel(box3, minimumSize=QSize(40 * fm.averageCharWidth(), 5 * fm.height()), wordWrap=True)
 
     @Inputs.network
     def set_network(self, network):
+        # handlerju rece da pogleda nastavitve in si to zapomni
+        self.closeContext()
+
         self.network = network
         self.node_name_model.set_domain(network.nodes.domain)
 
         if self.node_name_model:
             self.node_name = self.node_name_model[0]
 
-        self.node_name_id = {node: i for i, node in enumerate(self.network.nodes.get_column(self.node_name))}
+        self.controls.node_name.box.setHidden(len(self.node_name_model) < 2)
 
         self.set_value_list()
+
+        # context dobi vse settinge in pogleda če so združljivi s trenutnimi podatki, nujno mora biti combo ze nastavljen, da lahko spremeni podatke v combotu
+        self.openContext(self.network.nodes)
+        self.weights = self.network.edges[self.selected_node_index].edges.tocoo()
+
         self.set_friends()
         self.set_features()
 
@@ -78,14 +95,19 @@ class Recommendation(OWWidget):
             self.nodes_model.clear()
         else:
             self.nodes_model[:] = self.network.nodes.get_column(self.node_name)
+            self.selected_node = self.nodes_model[0]
+
+    @property
+    def selected_node_index(self):
+        return self.nodes_model.indexOf(self.selected_node)
 
     def find_neighbours(self):
-        neighbours = self.network.neighbours(self.node_name_id[self.selected_node])
-        return [key for key, value in self.node_name_id.items() if value in neighbours]
+        neighbours = self.network.neighbours(self.selected_node_index)
+        return self.network.nodes.get_column(self.node_name)[neighbours]
 
-    def get_features_for_node(self, node_name):
-        voted_features = np.asarray(self.network.nodes[self.node_name_id[node_name]].x, dtype=int)
-        return {attr.name for attr, voted in zip(self.network.nodes.domain, voted_features) if voted}
+    def get_features_for_node(self):
+        voted_features = np.flatnonzero(self.network.nodes.X[self.selected_node_index])
+        return voted_features
 
     def set_friends(self):
 
@@ -93,10 +115,20 @@ class Recommendation(OWWidget):
             self.friends_list_label.setText("No friends")
             return
 
-        neighbours_names = self.find_neighbours()
+        sorted_data = self.sort_node_weights()
+        neighbours_names_sorted = [self.nodes_model[row[1]] for row in sorted_data]
 
-        self.friends_list_label.setText("<ul style='font-size: 12px; list-style-type: circle;'>" + "".join([
-            "<li>" + name + "</li>" for name in neighbours_names]) + "</ul>")
+        # Find the neighbors that are not in the sorted list
+        neighbours_names = self.find_neighbours()
+        neighbours_names_unsorted = [neighbour for neighbour in neighbours_names if
+                                     neighbour not in neighbours_names_sorted]
+
+        # Combine the sorted and unsorted neighbor names
+        neighbours_names_combined = neighbours_names_sorted + neighbours_names_unsorted
+
+        # Set the text for the friends list label
+        self.friends_list_label.setText(", ".join(neighbours_names_combined))
+
         self.set_features()
         self.set_recommendations()
 
@@ -105,22 +137,71 @@ class Recommendation(OWWidget):
             self.features_list_label.setText("No features")
             return
 
-        features_of_a_node = self.get_features_for_node(self.selected_node)
+        # all choices of the selected node
+        node_choices = self.network.nodes.X[self.selected_node_index]
 
-        self.features_list_label.setText("<ul style='font-size: 12px; list-style-type: disc;'>" + "".join([
-            "<li>" + name + "</li>" for name in features_of_a_node]) + "</ul>")
+        # attributes -> (DiscreteVariable(name='Column1', values=('0', '1')),
+        attributes = self.network.nodes.domain.attributes
+
+        # returns same as features_of_a_node chosen [ 2 14 16 22 27]
+        chosen = np.flatnonzero(node_choices)
+
+        # get names of the cartoons
+        features_names = [attributes[i].name for i in chosen]
+
+        self.features_list_label.setText(", ".join(features_names))
 
     def set_recommendations(self):
-        features_to_recommend = set()
-        neighbours_names = self.find_neighbours()
-        features_of_a_node = self.get_features_for_node(self.selected_node)
+        if self.node_name is None or self.selected_node is None:
+            self.recommendations_label.setText("No recommendations")
+            return
 
-        for neighbour in neighbours_names:
-            features_of_a_neighbour = self.get_features_for_node(neighbour)
-            features_to_recommend.update(features_of_a_neighbour - features_of_a_node)
+        # Get the indexes of features of a node
+        attributes = self.network.nodes.domain.attributes
 
-        self.rec.setText("<ul style='font-size: 12px; list-style-type: disc;'>" + "".join([
-            "<li>" + name + "</li>" for name in features_to_recommend]) + "</ul>")
+        # Find neighbors
+        neighbours = self.find_neighbours()
+
+        # Get the indexes of features of each neighbor
+        neighbours_indices = [self.nodes_model.indexOf(neighbour) for neighbour in neighbours]
+
+        # get all choices of all neighbours -> [[0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 1. 0. 0. 0. 0. 0. 0. 0. 0. 1.
+        # 0. 0. 0. 0. 0. 1. 0. 0. 0. 0. 0. 0. 0. 0. 1. 1. 0. 0.] [0. 1. 0. 0. 0. 0. 0. 0. 1. 0. 1. 0. 0. 0. 0. 0. 0.
+        # 0. 0. 1. 0. 0. 0. 0. 0. 0. 0. 1. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
+        neighbours_choices = self.network.nodes.X[neighbours_indices]
+
+        # Find the indexes of the features that are chosen for each neighbor
+        # [[12, 21, 27], [1, 8, 10, 18, 37]]
+        chosen_neighbours = [np.flatnonzero(neighbour) for neighbour in neighbours_choices]
+
+        all_features_names = [attributes[i].name for neighbours_array in chosen_neighbours for i in neighbours_array]
+
+        # Use Counter to count occurrences of each cartoon
+        counter = Counter(all_features_names)
+
+        # Get the top n recommendations
+        recommendations = counter.most_common(5)
+
+        # Format the output
+        output = "<dl>"
+        for cartoon, count in recommendations:
+            recommending_nodes = [neighbour for i, neighbour in enumerate(neighbours) for index in chosen_neighbours[i]
+                                  if attributes[index].name == cartoon]
+            output += f"<dt>{cartoon}</dt>"
+            output += f"<dd> {', '.join(recommending_nodes)}</dd>"
+        output += "</dl>"
+
+        self.rec.setText(output)
+
+    def sort_node_weights(self):
+        if self.node_name is None or self.selected_node is None:
+            return "No node selected"
+
+        rows_for_node = [(i, j, value) for i, j, value in zip(self.weights.row, self.weights.col, self.weights.data) if
+                         i == self.selected_node_index]
+        sorted_data = sorted(rows_for_node, key=lambda x: x[2], reverse=True)
+
+        return sorted_data
 
 
 def main():
