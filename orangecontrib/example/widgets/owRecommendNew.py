@@ -38,7 +38,7 @@ class Recommendation(OWWidget):
 
     def __init__(self):
         super().__init__()
-        self.node_name_id = None  # raje property
+        self.node_name_id = None
         self.network: Network = None
         self.weights = None
 
@@ -55,12 +55,12 @@ class Recommendation(OWWidget):
             None, self, "selected_node",
             model=self.nodes_model, callback=self.set_friends)
 
-        alignTop = Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+        align_top = Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
         grid.addWidget(combo, 0, 0, 1, 2)
-        grid.addWidget(QLabel(self, text="<b>Cartoons: </b"), 1, 0, alignment=alignTop)
+        grid.addWidget(QLabel(self, text="<b>Cartoons: </b"), 1, 0, alignment=align_top)
         self.features_list_label = QLabel(self, wordWrap=True)
         grid.addWidget(self.features_list_label, 1, 1)
-        grid.addWidget(QLabel(self, text="<b>Friends: </b"), 2, 0, alignment=alignTop)
+        grid.addWidget(QLabel(self, text="<b>Friends: </b"), 2, 0, alignment=align_top)
         self.friends_list_label = QLabel(self, wordWrap=True)
         grid.addWidget(self.friends_list_label, 2, 1)
 
@@ -70,7 +70,6 @@ class Recommendation(OWWidget):
 
     @Inputs.network
     def set_network(self, network):
-        # handlerju rece da pogleda nastavitve in si to zapomni
         self.closeContext()
 
         self.network = network
@@ -83,7 +82,6 @@ class Recommendation(OWWidget):
 
         self.set_value_list()
 
-        # context dobi vse settinge in pogleda če so združljivi s trenutnimi podatki, nujno mora biti combo ze nastavljen, da lahko spremeni podatke v combotu
         self.openContext(self.network.nodes)
         self.weights = self.network.edges[self.selected_node_index].edges.tocoo()
 
@@ -118,15 +116,12 @@ class Recommendation(OWWidget):
         sorted_data = self.sort_node_weights()
         neighbours_names_sorted = [self.nodes_model[row[1]] for row in sorted_data]
 
-        # Find the neighbors that are not in the sorted list
         neighbours_names = self.find_neighbours()
         neighbours_names_unsorted = [neighbour for neighbour in neighbours_names if
                                      neighbour not in neighbours_names_sorted]
 
-        # Combine the sorted and unsorted neighbor names
         neighbours_names_combined = neighbours_names_sorted + neighbours_names_unsorted
 
-        # Set the text for the friends list label
         self.friends_list_label.setText(", ".join(neighbours_names_combined))
 
         self.set_features()
