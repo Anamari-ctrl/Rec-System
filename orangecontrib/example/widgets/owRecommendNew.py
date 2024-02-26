@@ -132,16 +132,12 @@ class Recommendation(OWWidget):
             self.features_list_label.setText("No features")
             return
 
-        # all choices of the selected node
         node_choices = self.network.nodes.X[self.selected_node_index]
 
-        # attributes -> (DiscreteVariable(name='Column1', values=('0', '1')),
         attributes = self.network.nodes.domain.attributes
 
-        # returns same as features_of_a_node chosen [ 2 14 16 22 27]
         chosen = np.flatnonzero(node_choices)
 
-        # get names of the cartoons
         features_names = [attributes[i].name for i in chosen]
 
         self.features_list_label.setText(", ".join(features_names))
@@ -151,33 +147,22 @@ class Recommendation(OWWidget):
             self.recommendations_label.setText("No recommendations")
             return
 
-        # Get the indexes of features of a node
         attributes = self.network.nodes.domain.attributes
 
-        # Find neighbors
         neighbours = self.find_neighbours()
 
-        # Get the indexes of features of each neighbor
         neighbours_indices = [self.nodes_model.indexOf(neighbour) for neighbour in neighbours]
 
-        # get all choices of all neighbours -> [[0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 1. 0. 0. 0. 0. 0. 0. 0. 0. 1.
-        # 0. 0. 0. 0. 0. 1. 0. 0. 0. 0. 0. 0. 0. 0. 1. 1. 0. 0.] [0. 1. 0. 0. 0. 0. 0. 0. 1. 0. 1. 0. 0. 0. 0. 0. 0.
-        # 0. 0. 1. 0. 0. 0. 0. 0. 0. 0. 1. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
         neighbours_choices = self.network.nodes.X[neighbours_indices]
 
-        # Find the indexes of the features that are chosen for each neighbor
-        # [[12, 21, 27], [1, 8, 10, 18, 37]]
         chosen_neighbours = [np.flatnonzero(neighbour) for neighbour in neighbours_choices]
 
         all_features_names = [attributes[i].name for neighbours_array in chosen_neighbours for i in neighbours_array]
 
-        # Use Counter to count occurrences of each cartoon
         counter = Counter(all_features_names)
 
-        # Get the top n recommendations
         recommendations = counter.most_common(5)
 
-        # Format the output
         output = "<dl>"
         for cartoon, count in recommendations:
             recommending_nodes = [neighbour for i, neighbour in enumerate(neighbours) for index in chosen_neighbours[i]
