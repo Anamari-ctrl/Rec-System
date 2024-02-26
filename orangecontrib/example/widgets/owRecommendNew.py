@@ -27,7 +27,6 @@ class Recommendation(OWWidget):
     class Inputs:
         network = Input("Network", Network, default=True)
 
-    # ContextSetting je dinamicen glede na podatke, če sploh obstaja to v podatkih, ima cel seznam preteklih nastavitev widgeta
     settingsHandler = settings.DomainContextHandler()
     selected_node = settings.ContextSetting(None)
     node_name = settings.ContextSetting(None)
