@@ -1,4 +1,7 @@
 import sysconfig
+from orangecontrib.network import Network
+from orangewidget.utils.signals import summarize, PartialSummary
+
 # Category metadata.
 
 # Category icon show in the menu
@@ -27,3 +30,24 @@ WIDGET_HELP_PATH = (
     # performed by comparing link caption to widget name.
     ("http://orange3-example-addon.readthedocs.io/en/latest/", "")
 )
+
+@summarize.register
+def summarize_(net: Network):
+    n = net.number_of_nodes()
+    e = net.number_of_edges()
+    if len(net.edges) == 1:
+        directed = net.edges[0].directed
+        direct = "➝" if directed else "–"
+        nettype = ['Network', 'Directed network'][directed]
+        details = f"<nobr>{nettype} with {n} nodes " \
+                  f"and {net.number_of_edges()} edges</nobr>."
+    else:
+        direct = "–"
+        details = f"<nobr>Network with {n} nodes"
+        if net.edges:
+            details += " and {len(net.edges)} edge types:</nobr><ul>" + "".join(
+                f"<li>{len(edges)} edges, "
+                f"{['undirected', 'directed'][edges.directed]}</li>"
+                for edges in net.edges) + "."
+
+    return PartialSummary(f"•{n} {direct}{e}", details)
